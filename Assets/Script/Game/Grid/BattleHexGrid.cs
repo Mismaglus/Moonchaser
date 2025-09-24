@@ -13,8 +13,17 @@ namespace Game.Battle
         [SerializeField] private GridRecipe _recipe;
         [SerializeField, HideInInspector] private uint _version;
 
-        public uint Version => _version;
-        public GridRecipe recipe => _recipe;
+        public uint Version
+        {
+            get => _version;
+            private set => _version = value;
+        }
+
+        public GridRecipe recipe
+        {
+            get => _recipe;
+            private set => _recipe = value;
+        }
         [SerializeField] private bool _useRecipeBorderMode = true; // 勾上=跟随配方；关掉=用运行时覆盖
         [SerializeField] private BorderMode _runtimeBorderMode = BorderMode.AllUnique;
         private Core.Hex.BorderMode _lastRuntimeMode;                      // 运行时变更检测
