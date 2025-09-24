@@ -4,6 +4,7 @@ using Game.Grid;               // IHexGridProvider, GridRecipe
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Game.Battle;             // SelectionManager
 
 namespace Game.Units
 {

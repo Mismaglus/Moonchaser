@@ -62,8 +62,13 @@ namespace Game.Battle
         public bool HasUnitAt(HexCoords c) => occupancy && occupancy.HasUnitAt(c);
         public bool IsEmpty(HexCoords c) => occupancy && occupancy.IsEmpty(c);
         public bool TryGetUnitAt(HexCoords c, out Game.Units.Unit u)
-            => occupancy != null && occupancy.TryGetUnitAt(c, out u);
+        {
+            if (occupancy != null)
+                return occupancy.TryGetUnitAt(c, out u);
 
+            u = null;
+            return false;
+        }
         // 若 SelectionManager 里有 Register/Unregister/Sync，改为：
         public void RegisterUnit(Game.Units.Unit u) => occupancy?.Register(u);
         public void UnregisterUnit(Game.Units.Unit u) => occupancy?.Unregister(u);
