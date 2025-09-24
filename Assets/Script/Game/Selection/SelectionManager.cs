@@ -2,6 +2,7 @@
 using UnityEngine;
 using Core.Hex;
 using Game.Common;
+using Game.Units;
 
 namespace Game.Battle
 {
@@ -26,8 +27,8 @@ namespace Game.Battle
         HexCoords? _hoverCache;
 
         // —— 单位与占位表 —— //
-        readonly Dictionary<HexCoords, BattleUnit> _units = new();
-        public BattleUnit selectedUnit { get; private set; }
+        readonly Dictionary<HexCoords, Unit> _units = new();
+        public Unit selectedUnit { get; private set; }
 
         void Reset()
         {
@@ -59,42 +60,86 @@ namespace Game.Battle
         [SerializeField] private Game.Grid.GridOccupancy occupancy;
 
         // —— 占位相关对外 API —— //
-        public bool HasUnitAt(HexCoords c) => occupancy && occupancy.HasUnitAt(c);
-        public bool IsEmpty(HexCoords c) => occupancy && occupancy.IsEmpty(c);
-        public bool TryGetUnitAt(HexCoords c, out Game.Units.Unit u)
+        public bool HasUnitAt(HexCoords c)
         {
-            if (occupancy != null)
-                return occupancy.TryGetUnitAt(c, out u);
+            if (_units.ContainsKey(c)) return true;
+            return occupancy != null && occupancy.HasUnitAt(c);
+        }
+        public bool IsEmpty(HexCoords c) => !HasUnitAt(c);
+        public bool TryGetUnitAt(HexCoords c, out Unit u)
+        {
+            if (_units.TryGetValue(c, out u)) return true;
+
+            if (occupancy != null && occupancy.TryGetUnitAt(c, out var occ))
+            {
+                RemoveUnitMapping(occ);
+                _units[c] = occ;
+                u = occ;
+                return true;
+            }
 
             u = null;
             return false;
         }
         // 若 SelectionManager 里有 Register/Unregister/Sync，改为：
-        public void RegisterUnit(Game.Units.Unit u) => occupancy?.Register(u);
-        public void UnregisterUnit(Game.Units.Unit u) => occupancy?.Unregister(u);
-        public void SyncUnit(Game.Units.Unit u) => occupancy?.SyncUnit(u);
-
-
-        // —— 单位注册接口 —— //
-
-        public void RegisterUnit(BattleUnit u)
+        public void RegisterUnit(Unit u)
         {
             if (u == null) return;
+
+            occupancy?.Register(u);
+
+            RemoveUnitMapping(u);
             _units[u.Coords] = u;
+            u.OnMoveFinished -= OnUnitMoveFinished;
             u.OnMoveFinished += OnUnitMoveFinished;
         }
 
-        public void UnregisterUnit(BattleUnit u)
+        public void UnregisterUnit(Unit u)
         {
             if (u == null) return;
-            if (_units.TryGetValue(u.Coords, out var v) && v == u)
-                _units.Remove(u.Coords);
+
+            occupancy?.Unregister(u);
+
             u.OnMoveFinished -= OnUnitMoveFinished;
-            if (selectedUnit == u) { selectedUnit = null; _selected = null; highlighter.SetSelected(null); }
+            RemoveUnitMapping(u);
+
+            if (selectedUnit == u)
+            {
+                selectedUnit = null;
+                _selected = null;
+                highlighter.SetSelected(null);
+            }
         }
 
-        public bool TryGetUnitAt(HexCoords c, out BattleUnit u) => _units.TryGetValue(c, out u);
-        public bool IsOccupied(HexCoords c) => _units.ContainsKey(c);
+        public void SyncUnit(Unit u)
+        {
+            if (u == null) return;
+
+            occupancy?.SyncUnit(u);
+
+            RemoveUnitMapping(u);
+            _units[u.Coords] = u;
+        }
+
+        void RemoveUnitMapping(Unit u)
+        {
+            HexCoords keyToRemove = default;
+            bool found = false;
+            foreach (var kv in _units)
+            {
+                if (kv.Value == u)
+                {
+                    keyToRemove = kv.Key;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found)
+                _units.Remove(keyToRemove);
+        }
+
+        public bool IsOccupied(HexCoords c) => HasUnitAt(c);
 
         // —— 输入回调 —— //
 
@@ -128,7 +173,7 @@ namespace Game.Battle
                 if (selectedUnit.TryMoveTo(c))
                 {
                     // 预占位（简单防止快速连点造成穿插）
-                    _units.Remove(from);
+                    RemoveUnitMapping(selectedUnit);
                     _units[c] = selectedUnit;
 
                     // 选中视觉跟随到目标（也可以等移动结束再跟）
@@ -138,10 +183,10 @@ namespace Game.Battle
             }
         }
 
-        void OnUnitMoveFinished(BattleUnit u, HexCoords from, HexCoords to)
+        void OnUnitMoveFinished(Unit u, HexCoords from, HexCoords to)
         {
             // 确保占位表一致（防止被其它逻辑改动）
-            if (_units.TryGetValue(from, out var v) && v == u) _units.Remove(from);
+            RemoveUnitMapping(u);
             _units[to] = u;
 
             // 若它是当前选中单位，让选择标记站在新格（安全起见再设一次）
