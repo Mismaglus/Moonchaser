@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Game.Battle;             // SelectionManager
+using Game.Battle.Units;       // UnitVisual2D
 
 namespace Game.Units
 {
@@ -21,7 +22,7 @@ namespace Game.Units
         [Tooltip("单位在顶面之上额外抬高的高度")]
         public float unitYOffset = 0.02f;
         [Tooltip("移动时朝向目标")]
-        public bool faceMovement = true;
+        public bool faceMovement = false;
         [Tooltip("若未显式初始化，则在 Start 自动寻找 Grid 并注册到 SelectionManager。")]
         public bool autoInitializeIfMissing = true;
 
@@ -36,10 +37,12 @@ namespace Game.Units
         uint _lastGridVersion;
         Coroutine _moveRoutine;
         bool _hasValidCoords;
+        UnitVisual2D _visual2D;
 
         void Awake()
         {
             grid = gridComponent as IHexGridProvider;
+            _visual2D = GetComponentInChildren<UnitVisual2D>(true);
         }
 
         void Start()
@@ -154,7 +157,8 @@ namespace Game.Units
         {
             float t = 0f;
             float dur = Mathf.Max(0.01f, secondsPerTile);
-            if (faceMovement)
+            bool shouldRotate = faceMovement && _visual2D == null;
+            if (shouldRotate)
             {
                 Vector3 dir = (dst - src);
                 dir.y = 0f;
