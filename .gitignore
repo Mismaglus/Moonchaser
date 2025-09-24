@@ -1,0 +1,29 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+SysInfo/
+Artifacts/
+
+# IDE
+.vs/
+.idea/
+*.csproj
+*.sln
+*.user
+*.unityproj
+
+# OS
+.DS_Store
+Thumbs.db
+
+# --- Assets 策略：默认忽略一切，只白名单需要的 ---
+Assets/*
+# 只保留脚本
+!Assets/Script/
+!Assets/Script/**
