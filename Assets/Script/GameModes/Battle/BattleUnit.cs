@@ -9,10 +9,46 @@ namespace Game.Battle
     public class BattleUnit : MonoBehaviour
     {
         [Header("Battle")]
-        public bool isPlayer = true; // 或者用 Faction 枚举
+        [Tooltip("Whether this unit is controlled by the player.")]
+        public bool isPlayer = true;
 
-        // 这里以后加：战斗属性（HP/护盾/元素）、实现 ITurnActor 等
-        // ITurnActor.OnTurnStart() => GetComponent<UnitMover>().ResetStride();
-        // ITurnActor.TakeTurn()    => 玩家等待输入 / 敌人AI走一步……
+        [SerializeField, Min(0)] private int maxAP = 2;
+
+        public int MaxAP => maxAP;
+        public int CurAP { get; private set; }
+
+        UnitMover _mover;
+
+        void Awake()
+        {
+            _mover = GetComponent<UnitMover>();
+            ResetTurnResources();
+        }
+
+        public void ResetTurnResources()
+        {
+            CurAP = Mathf.Max(0, MaxAP);
+            _mover?.ResetStride();
+        }
+
+        public bool TrySpendAP(int cost = 1)
+        {
+            if (cost <= 0) return true;
+            if (CurAP < cost) return false;
+            CurAP -= cost;
+            return true;
+        }
+
+        public void RefundAP(int amount)
+        {
+            if (amount <= 0) return;
+            CurAP = Mathf.Clamp(CurAP + amount, 0, MaxAP);
+        }
+
+        public void SetMaxAP(int value, bool refill = true)
+        {
+            maxAP = Mathf.Max(0, value);
+            if (refill) CurAP = MaxAP;
+        }
     }
 }

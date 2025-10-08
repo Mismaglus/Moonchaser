@@ -11,20 +11,42 @@ public class BattleTurnController : MonoBehaviour, ITurnOrderProvider
 
     void Awake()
     {
-        // 收集玩家/敌人等实现了 ITurnActor 的组件
-        _actors.AddRange(FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
-                         .OfType<ITurnActor>());
-        turnSystem.Initialize(this);
+        RefreshActorList();
+        if (turnSystem != null)
+            turnSystem.Initialize(this);
     }
 
-    public void StartBattleRound() => turnSystem.StartRound();
+    public void RefreshActorList()
+    {
+        _actors.Clear();
+        _actors.AddRange(FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                         .OfType<ITurnActor>());
+    }
+
+    public void StartBattleRound() => turnSystem?.StartRound();
 
     public System.Collections.Generic.IEnumerable<ITurnActor> BuildOrder()
     {
-        // 例：先我方所有，再敌方所有（用 rules 判断阵营）
-        var players = _actors.Where(a => rules.IsPlayer(a));
-        var enemies = _actors.Where(a => rules.IsEnemy(a));
-        foreach (var p in players) yield return p;
-        foreach (var e in enemies) yield return e;
+        foreach (var actor in EnumerateSide(TurnSide.Player))
+            yield return actor;
+        foreach (var actor in EnumerateSide(TurnSide.Enemy))
+            yield return actor;
+    }
+
+    public System.Collections.Generic.IEnumerable<ITurnActor> EnumerateSide(TurnSide side)
+    {
+        if (rules == null)
+            yield break;
+
+        var predicate = side == TurnSide.Player
+            ? new System.Func<ITurnActor, bool>(rules.IsPlayer)
+            : new System.Func<ITurnActor, bool>(rules.IsEnemy);
+
+        foreach (var actor in _actors)
+        {
+            if (actor == null) continue;
+            if (predicate(actor))
+                yield return actor;
+        }
     }
 }
