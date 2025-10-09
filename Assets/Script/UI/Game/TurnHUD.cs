@@ -1,19 +1,34 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using Game.Battle;
+using Game.Localization;
 public class TurnHUD_UITK : MonoBehaviour
 {
     public BattleStateMachine battle;
     public BattleUnit playerUnit;
 
+    [SerializeField]
     UIDocument doc;
     Label turnText, apText;
     Button endTurnBtn;
 
     void Awake()
     {
-        doc = GetComponent<UIDocument>();
+        if (doc == null)
+            doc = GetComponent<UIDocument>() ?? GetComponentInChildren<UIDocument>();
+
+        if (doc == null)
+        {
+            Debug.LogError($"{nameof(TurnHUD_UITK)} requires a {nameof(UIDocument)} on the same GameObject or its children.", this);
+            return;
+        }
+
         var root = doc.rootVisualElement;
+        if (root == null)
+        {
+            Debug.LogError($"{nameof(UIDocument)} on {name} has no root visual element assigned.", this);
+            return;
+        }
         turnText = root.Q<Label>("TurnText");
         apText = root.Q<Label>("APText");
         endTurnBtn = root.Q<Button>("EndTurnBtn");
@@ -42,7 +57,10 @@ public class TurnHUD_UITK : MonoBehaviour
     void UpdateTurnUI(TurnSide side)
     {
         if (turnText != null)
-            turnText.text = side == TurnSide.Player ? "PLAYER TURN" : "ENEMY TURN";
+        {
+            var key = side == TurnSide.Player ? "turn.player" : "turn.enemy";
+            turnText.text = LocalizationManager.Get(key);
+        }
     }
 
     void UpdateAP()

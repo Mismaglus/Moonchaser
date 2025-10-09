@@ -1,0 +1,6 @@
+{
+    "entries": [
+        { "key": "turn.player", "value": "PLAYER TURN" },
+        { "key": "turn.enemy", "value": "ENEMY TURN" }
+    ]
+}
