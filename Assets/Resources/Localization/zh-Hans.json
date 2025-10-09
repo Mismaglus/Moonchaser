@@ -1,0 +1,6 @@
+{
+    "entries": [
+        { "key": "turn.player", "value": "玩家回合" },
+        { "key": "turn.enemy", "value": "敌方回合" }
+    ]
+}

@@ -27,3 +27,7 @@ Assets/*
 # 只保留脚本
 !Assets/Script/
 !Assets/Script/**
+# 保留本地化数据
+!Assets/Resources/
+!Assets/Resources/Localization/
+!Assets/Resources/Localization/*.json

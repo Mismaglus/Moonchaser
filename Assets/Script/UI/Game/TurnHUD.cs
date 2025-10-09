@@ -1,11 +1,14 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using Game.Battle;
+using Game.Localization;
 public class TurnHUD_UITK : MonoBehaviour
 {
     public BattleStateMachine battle;
     public BattleUnit playerUnit;
     public UIDocument doc;
+
+    [SerializeField]
     Label turnText, apText;
     Button endTurnBtn;
 
@@ -40,7 +43,10 @@ public class TurnHUD_UITK : MonoBehaviour
     void UpdateTurnUI(TurnSide side)
     {
         if (turnText != null)
-            turnText.text = side == TurnSide.Player ? "PLAYER TURN" : "ENEMY TURN";
+        {
+            var key = side == TurnSide.Player ? "turn.player" : "turn.enemy";
+            turnText.text = LocalizationManager.Get(key);
+        }
     }
 
     void UpdateAP()
