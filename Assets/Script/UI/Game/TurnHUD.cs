@@ -5,14 +5,12 @@ public class TurnHUD_UITK : MonoBehaviour
 {
     public BattleStateMachine battle;
     public BattleUnit playerUnit;
-
-    UIDocument doc;
+    public UIDocument doc;
     Label turnText, apText;
     Button endTurnBtn;
 
     void Awake()
     {
-        doc = GetComponent<UIDocument>();
         var root = doc.rootVisualElement;
         turnText = root.Q<Label>("TurnText");
         apText = root.Q<Label>("APText");
