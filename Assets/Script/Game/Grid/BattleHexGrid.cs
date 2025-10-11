@@ -26,7 +26,7 @@ namespace Game.Battle
         }
         [SerializeField] private bool _useRecipeBorderMode = true; // 勾上=跟随配方；关掉=用运行时覆盖
         [SerializeField] private BorderMode _runtimeBorderMode = BorderMode.AllUnique;
-        private Core.Hex.BorderMode _lastRuntimeMode;                      // 运行时变更检测
+        private BorderMode _lastRuntimeMode;                      // 运行时变更检测
 
         [SerializeField] private int _lastRecipeHash;                      // 配方哈希（运行时检测用）
 

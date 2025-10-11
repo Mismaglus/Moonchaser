@@ -82,7 +82,7 @@ namespace Game.Battle
 
             // 有步点（Stride）
             if (unit.TryGetComponent(out UnitMover mover))
-                return mover.Stride > 0;
+                return mover.strideLeft > 0;
 
             return true; // 没挂 UnitMover 的特殊单位，规则放行
         }

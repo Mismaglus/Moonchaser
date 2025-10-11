@@ -1,3 +1,4 @@
+using Game.Core;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -10,15 +11,30 @@ public class UnitHighlighter : MonoBehaviour
     [Range(0, 0.08f)] public float widthSelected = 0.035f;
 
     [Header("Colors (HDR)")]
-    public Color colorHover = new Color(0.20f, 1.80f, 0.60f, 1f);     // 亮绿
+    public Color colorPlayer = new Color(0.20f, 1.80f, 0.60f, 1f);     // 亮绿
     public Color colorSelected = new Color(1.80f, 1.40f, 0.50f, 1f);  // 金黄
     public Color colorEnemy = new Color(2.00f, 0.60f, 0.40f, 1f);     // 敌方红橙
 
+    public FactionMembership _faction;
+    public bool IsPlayerControlled
+    {
+        get
+        {
+            if (_faction == null) TryGetComponent(out _faction);
+            if (_faction != null) return _faction.IsPlayerControlled;
+            return true; // 无组件时默认可控
+        }
+        set
+        {
+            if (_faction == null) TryGetComponent(out _faction);
+            if (_faction != null) { _faction.playerControlled = value; return; }
+        }
+    }
     private SkinnedMeshRenderer _r;
     private Material _outlineMat;   // 实例
     private int _slot = -1;
     private bool _hoverOn, _selOn;
-
+    private Color colorHover;
     static readonly int ColID = Shader.PropertyToID("_OutlineColor");
     static readonly int WidID = Shader.PropertyToID("_OutlineWidth");
 
@@ -33,6 +49,14 @@ public class UnitHighlighter : MonoBehaviour
         _slot = mats.Length - 1;
         mats[_slot] = _outlineMat;
         _r.sharedMaterials = mats;
+        if (IsPlayerControlled)
+        {
+            colorHover = colorPlayer;
+        }
+        else
+        {
+            colorHover = colorEnemy;
+        }
 
         Hide(); // 默认隐藏
     }

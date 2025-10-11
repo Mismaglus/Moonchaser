@@ -63,7 +63,7 @@ namespace Game.Battle
                 {
                     OnTileClicked?.Invoke(h);
                     // 先打个日志，后续你可以在外部订阅上层逻辑
-                    Debug.Log($"[Click] Hex {h}");
+                    // Debug.Log($"[Click] Hex {h}");
                 }
             }
             else

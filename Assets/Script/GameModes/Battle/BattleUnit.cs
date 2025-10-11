@@ -1,5 +1,6 @@
 using UnityEngine;
 using Game.Units;
+using Game.Core;
 
 namespace Game.Battle
 {
@@ -10,13 +11,25 @@ namespace Game.Battle
     {
         [Header("Battle")]
         [Tooltip("Whether this unit is controlled by the player.")]
-        public bool isPlayer = true;
+        // public bool isPlayer = true;
+        [SerializeField] private FactionMembership _faction;
 
         [SerializeField, Min(0)] private int maxAP = 2;
 
         public int MaxAP => maxAP;
         public int CurAP { get; private set; }
 
+        [SerializeField] private bool _isPlayer = true; // 旧数据迁移期保留
+        public bool isPlayer
+        {
+            get => _faction ? (_faction.side == Side.Player) : _isPlayer;
+            set
+            {
+                if (_faction) _faction.side = value ? Side.Player : Side.Enemy;
+                _isPlayer = value; // 兼容旧存档/预制
+            }
+        }
+        public bool IsPlayerControlled => _faction ? _faction.IsPlayerControlled : isPlayer;
         UnitMover _mover;
 
         void Awake()

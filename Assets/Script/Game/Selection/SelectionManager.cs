@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 using UnityEngine;
 using Core.Hex;
 using Game.Common;
@@ -19,6 +20,7 @@ namespace Game.Battle
         public BattleHexInput input;       // 事件来源（Hover/Click）
         public HexHighlighter highlighter; // 视觉（Hover/Selected/Range）
         public BattleHexGrid grid;         // 网格（用于 Version 检测）
+        [SerializeField] BattleStateMachine _battleSM; // assign in scene (or FindFirstObjectByType in Awake)
 
         [Header("Range")]
         public RangeMode rangeMode = RangeMode.None;
@@ -31,7 +33,22 @@ namespace Game.Battle
 
         // —— 单位与占位表 —— //
         readonly Dictionary<HexCoords, Unit> _units = new();
-        public Unit selectedUnit { get; private set; }
+        Unit _selectedUnit;
+        public Unit SelectedUnit
+        {
+            get => _selectedUnit;
+            private set
+            {
+                if (_selectedUnit == value) return;
+                _selectedUnit = value;
+                OnSelectedUnitChanged?.Invoke(_selectedUnit);
+            }
+        }
+
+        [Obsolete("Use SelectedUnit instead.")]
+        public Unit selectedUnit => SelectedUnit;
+
+        public event Action<Unit> OnSelectedUnitChanged;
 
         // NEW: 追踪上一个 Hover 的单位与可视缓存
         Unit _hoveredUnit; // 上一个 hover 到的单位
@@ -63,6 +80,11 @@ namespace Game.Battle
 #endif
         }
 
+        void Awake()
+        {
+            if (_battleSM == null)
+                _battleSM = UnityEngine.Object.FindFirstObjectByType<BattleStateMachine>();
+        }
 
         void OnEnable()
         {
@@ -108,6 +130,81 @@ namespace Game.Battle
             u = null;
             return false;
         }
+        // SelectionManager.cs
+        void HandleClickOnEmptyTile(HexCoords c)
+        {
+            // 1) 仅玩家回合可下达命令
+            if (_battleSM != null && _battleSM.CurrentTurn != TurnSide.Player)
+            {
+                Debug.Log("[Select] Denied: not player's turn.");
+                return;
+            }
+
+            if (SelectedUnit == null || _selected == null)
+            {
+                Debug.Log("[Select] Denied: no selected unit.");
+                return;
+            }
+
+            var unit = SelectedUnit;
+            if (!unit.IsPlayerControlled)
+            {
+                Debug.Log("[Select] Denied: selected unit is not player-controlled.");
+                return;
+            }
+
+            // 自己格子就不处理
+            if (unit.Coords.Equals(c))
+            {
+                Debug.Log("[Select] Clicked on current tile; ignoring.");
+                return;
+            }
+
+            // 2) 目标格不可被占用
+            if (HasUnitAt(c))
+            {
+                Debug.Log("[Select] Denied: target tile is occupied.");
+                return;
+            }
+
+            // 3) 必须是邻格（当前版本只支持一步移动）
+            if (unit.Coords.DistanceTo(c) != 1)
+            {
+                Debug.Log("[Select] Denied: non-adjacent target. (Current design = 1-step only)");
+                return;
+            }
+
+            // 4) 必须有 UnitMover 且不在移动
+            if (!unit.TryGetComponent<UnitMover>(out var mover))
+            {
+                Debug.LogWarning("[Select] Denied: selected unit has no UnitMover component.");
+                return;
+            }
+            if (mover.IsMoving)
+            {
+                Debug.Log("[Select] Denied: mover is currently moving.");
+                return;
+            }
+
+            // 5) 尝试迈一步（会消耗 stride）
+            bool ok = mover.TryStepTo(c, onDone: () =>
+            {
+                // 成功后同步占位与选择标记
+                RemoveUnitMapping(unit);
+                _units[c] = unit;
+
+                _selected = c;
+                highlighter.SetSelected(c);
+                if (rangePivot == RangePivot.Selected) RecalcRange();
+            });
+
+            if (!ok)
+            {
+                Debug.Log("[Select] TryStepTo() returned false (likely no stride left or other guard failed).");
+                // 这里也可以做个 UI 提示：比如闪红、提示音等
+            }
+        }
+
 
         // NEW: 小工具——拿到单位的可视控制组件（缓存）
         UnitHighlighter GetHighlighter(Unit u)
@@ -121,22 +218,23 @@ namespace Game.Battle
 
         void Deselect()
         {
-            if (selectedUnit == null) return;
+            var current = SelectedUnit;
+            if (current == null) return;
 
             // 关掉选中色/描边（有就关）
-            GetHighlighter(selectedUnit)?.SetSelected(false);
-            var ol = selectedUnit.GetComponentInChildren<UnitHighlighter>(true);
+            GetHighlighter(current)?.SetSelected(false);
+            var ol = current.GetComponentInChildren<UnitHighlighter>(true);
             ol?.SetSelected(false);
 
-            selectedUnit = null;
             _selected = null;
             highlighter.SetSelected(null);
+            SelectedUnit = null;
 
             // 若范围枢轴是 Selected，就清掉范围
             if (rangePivot == RangePivot.Selected) RecalcRange();
 
             // 如果此时有 hover 在别的单位上，恢复它的 hover 效果
-            if (_hoveredUnit != null && _hoveredUnit != selectedUnit)
+            if (_hoveredUnit != null && _hoveredUnit != SelectedUnit)
                 GetHighlighter(_hoveredUnit)?.SetHover(true);
         }
 
@@ -173,11 +271,11 @@ namespace Game.Battle
 
             RemoveUnitMapping(u);
 
-            if (selectedUnit == u)
+            if (SelectedUnit == u)
             {
-                selectedUnit = null;
                 _selected = null;
                 highlighter.SetSelected(null);
+                SelectedUnit = null;
             }
 
             // 可视缓存保留与否皆可；这里不清除以减少 GC
@@ -234,7 +332,7 @@ namespace Game.Battle
             if (_hoveredUnit != null)
             {
                 var vOld = GetHighlighter(_hoveredUnit);
-                if (_hoveredUnit == selectedUnit)
+                if (_hoveredUnit == SelectedUnit)
                 {
                     vOld?.SetHover(false);
                     vOld?.SetSelected(true);
@@ -249,7 +347,7 @@ namespace Game.Battle
             if (newHover != null)
             {
                 var vNew = GetHighlighter(newHover);
-                if (newHover == selectedUnit)
+                if (newHover == SelectedUnit)
                 {
                     vNew?.SetSelected(true);
                     vNew?.SetHover(true);
@@ -271,22 +369,22 @@ namespace Game.Battle
             if (TryGetUnitAt(c, out var unit))
             {
                 // 点到当前选中的单位 → 直接取消选中（切换型 UX，常见）
-                if (selectedUnit == unit)
+                if (SelectedUnit == unit)
                 {
                     Deselect();
                     return;
                 }
 
                 // 关旧开新（原逻辑）
-                if (selectedUnit != null)
-                    GetHighlighter(selectedUnit)?.SetSelected(false);
+                if (SelectedUnit != null)
+                    GetHighlighter(SelectedUnit)?.SetSelected(false);
 
-                selectedUnit = unit;
+                SelectedUnit = unit;
                 _selected = c;
                 highlighter.SetSelected(c);
 
-                var vNew = GetHighlighter(selectedUnit);
-                if (_hoveredUnit == selectedUnit) { vNew?.SetSelected(true); vNew?.SetHover(true); }
+                var vNew = GetHighlighter(SelectedUnit);
+                if (_hoveredUnit == SelectedUnit) { vNew?.SetSelected(true); vNew?.SetHover(true); }
                 else vNew?.SetSelected(true);
 
                 if (rangePivot == RangePivot.Selected) RecalcRange();
@@ -294,25 +392,26 @@ namespace Game.Battle
             }
 
             // —— 点到空地 —— //
-            if (selectedUnit != null && !selectedUnit.IsMoving)
+            if (SelectedUnit != null && !SelectedUnit.IsMoving)
             {
-                var from = selectedUnit.Coords;
-                bool canIssueMove = from.DistanceTo(c) == 1 && !IsOccupied(c);
+                HandleClickOnEmptyTile(c);
+                // var from = selectedUnit.Coords;
+                // bool canIssueMove = from.DistanceTo(c) == 1 && !IsOccupied(c);
 
-                if (canIssueMove && selectedUnit.TryMoveTo(c))
-                {
-                    // 原“下命令移动”逻辑
-                    RemoveUnitMapping(selectedUnit);
-                    _units[c] = selectedUnit;
+                // if (canIssueMove && selectedUnit.TryMoveTo(c))
+                // {
+                //     // 原“下命令移动”逻辑
+                //     RemoveUnitMapping(selectedUnit);
+                //     _units[c] = selectedUnit;
 
-                    _selected = c;
-                    highlighter.SetSelected(c);
-                }
-                else
-                {
-                    // 不是合法移动 → 视作“点击空白” → 取消选中
-                    Deselect();
-                }
+                //     _selected = c;
+                //     highlighter.SetSelected(c);
+                // }
+                // else
+                // {
+                //     // 不是合法移动 → 视作“点击空白” → 取消选中
+                //     Deselect();
+                // }
             }
             else
             {
@@ -328,7 +427,7 @@ namespace Game.Battle
             _units[to] = u;
 
             // 若它是当前选中单位，让选择标记站在新格（安全起见再设一次）
-            if (selectedUnit == u)
+            if (SelectedUnit == u)
             {
                 _selected = to;
                 highlighter.SetSelected(to);
@@ -361,6 +460,12 @@ namespace Game.Battle
                 foreach (var c in center.Value.Ring(radius)) set.Add(c);
 
             highlighter.ApplyRange(set);
+        }
+
+        Unit GetUnitAt(HexCoords c)
+        {
+            TryGetUnitAt(c, out var u);
+            return u;
         }
     }
 }

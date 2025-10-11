@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Game.Battle;             // SelectionManager
 using Game.Battle.Units;       // UnitVisual2D
+using Game.Core;
 
 namespace Game.Units
 {
@@ -28,7 +29,8 @@ namespace Game.Units
 
         public HexCoords Coords { get; private set; }
         public bool IsMoving => _moveRoutine != null;
-
+        public FactionMembership _faction;
+        private BattleUnit _bu;
         // 移动完成事件：from -> to
         public System.Action<Unit, HexCoords, HexCoords> OnMoveFinished;
 
@@ -73,6 +75,21 @@ namespace Game.Units
             var sel = FindFirstObjectByType<SelectionManager>(FindObjectsInactive.Exclude);
             if (sel != null)
                 sel.RegisterUnit(this);
+        }
+
+        public bool IsPlayerControlled
+        {
+            get
+            {
+                if (_faction == null) TryGetComponent(out _faction);
+                if (_faction != null) return _faction.IsPlayerControlled;
+                return true; // 无组件时默认可控
+            }
+            set
+            {
+                if (_faction == null) TryGetComponent(out _faction);
+                if (_faction != null) { _faction.playerControlled = value; return; }
+            }
         }
 
         IHexGridProvider FindFirstGridProviderInScene()
